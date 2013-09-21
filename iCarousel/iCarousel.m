@@ -1,7 +1,7 @@
 //
 //  iCarousel.m
 //
-//  Version 1.8 beta 2
+//  Version 1.8 beta 5
 //
 //  Created by Nick Lockwood on 01/04/2011.
 //  Copyright 2011 Charcoal Design
@@ -31,6 +31,7 @@
 //
 
 #import "iCarousel.h"
+#import <objc/message.h>
 
 
 #import <Availability.h>
@@ -645,18 +646,31 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
 
 NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *self)
 {
+    //compare depths
     CATransform3D t1 = view1.superview.layer.transform;
     CATransform3D t2 = view2.superview.layer.transform;
     CGFloat z1 = t1.m13 + t1.m23 + t1.m33 + t1.m43;
     CGFloat z2 = t2.m13 + t2.m23 + t2.m33 + t2.m43;
     CGFloat difference = z1 - z2;
+    
+    //if depths are equal, compare distance from current view
     if (difference == 0.0f)
     {
         CATransform3D t3 = [self currentItemView].superview.layer.transform;
-        CGFloat x1 = t1.m11 + t1.m21 + t1.m31 + t1.m41;
-        CGFloat x2 = t2.m11 + t2.m21 + t2.m31 + t2.m41;
-        CGFloat x3 = t3.m11 + t3.m21 + t3.m31 + t3.m41;
-        difference = fabsf(x2 - x3) - fabsf(x1 - x3);
+        if (self.vertical)
+        {
+            CGFloat y1 = t1.m12 + t1.m22 + t1.m32 + t1.m42;
+            CGFloat y2 = t2.m12 + t2.m22 + t2.m32 + t2.m42;
+            CGFloat y3 = t3.m12 + t3.m22 + t3.m32 + t3.m42;
+            difference = fabsf(y2 - y3) - fabsf(y1 - y3);
+        }
+        else
+        {
+            CGFloat x1 = t1.m11 + t1.m21 + t1.m31 + t1.m41;
+            CGFloat x2 = t2.m11 + t2.m21 + t2.m31 + t2.m41;
+            CGFloat x3 = t3.m11 + t3.m21 + t3.m31 + t3.m41;
+            difference = fabsf(x2 - x3) - fabsf(x1 - x3);
+        }
     }
     return (difference < 0.0f)? NSOrderedAscending: NSOrderedDescending;
 }
@@ -1285,15 +1299,11 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
 {
     if (_wrapEnabled)
     {
-        if (_numberOfItems == 0)
-        {
-            return 0;
-        }
-        return index - floorf((CGFloat)index / (CGFloat)_numberOfItems) * _numberOfItems;
+        return _numberOfItems? (index - floorf((CGFloat)index / (CGFloat)_numberOfItems) * _numberOfItems): 0;
     }
     else
     {
-        return MIN(MAX(index, 0), _numberOfItems - 1);
+        return MIN(MAX(0, index), MAX(0, _numberOfItems - 1));
     }
 }
 
@@ -1305,7 +1315,7 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
     }
     else
     {
-        return fminf(fmaxf(0.0f, offset), (CGFloat)_numberOfItems - 1.0f);
+        return fminf(fmaxf(0.0f, offset), fmaxf(0.0f, (CGFloat)_numberOfItems - 1.0f));
     }
 }
 
@@ -1867,17 +1877,33 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
     return index;
 }
 
-- (BOOL)viewOrSuperview:(UIView *)view isKindOfClass:(Class)class
+- (BOOL)viewOrSuperview:(UIView *)view implementsSelector:(SEL)selector
 {
-    if (view == nil || view == _contentView)
+    //thanks to @mattjgalloway and @shaps for idea
+    //https://gist.github.com/mattjgalloway/6279363
+    //https://gist.github.com/shaps80/6279008
+    
+    Class class = [view class];
+	while (class && class != [UIView class])
     {
-        return NO;
-    }
-    else if ([view isKindOfClass:class])
+		int unsigned numberOfMethods;
+		Method *methods = class_copyMethodList(class, &numberOfMethods);
+		for (int i = 0; i < numberOfMethods; i++)
+        {
+			if (method_getName(methods[i]) == selector)
+            {
+				return YES;
+			}
+		}
+		class = [class superclass];
+	}
+    
+    if (view.superview && view.superview != self.contentView)
     {
-        return YES;
+        return [self viewOrSuperview:view.superview implementsSelector:selector];
     }
-    return [self viewOrSuperview:view.superview isKindOfClass:class];
+    
+	return NO;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture shouldReceiveTouch:(UITouch *)touch
@@ -1897,8 +1923,7 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
             {
                 return NO;
             }
-            else if ([self viewOrSuperview:touch.view isKindOfClass:[UIControl class]] ||
-                     [self viewOrSuperview:touch.view isKindOfClass:[UITableViewCell class]])
+            else if ([self viewOrSuperview:touch.view implementsSelector:@selector(touchesBegan:withEvent:)])
             {
                 return NO;
             }
@@ -1906,9 +1931,7 @@ NSComparisonResult compareViewDepth(UIView *view1, UIView *view2, iCarousel *sel
     }
     else if ([gesture isKindOfClass:[UIPanGestureRecognizer class]])
     {
-        if ([self viewOrSuperview:touch.view isKindOfClass:[UISlider class]] ||
-            [self viewOrSuperview:touch.view isKindOfClass:[UISwitch class]] ||
-            !_scrollEnabled)
+        if (!_scrollEnabled || [self viewOrSuperview:touch.view implementsSelector:@selector(touchesMoved:withEvent:)])
         {
             return NO;
         }
