@@ -10,8 +10,6 @@
 #import "iCarousel.h"
 
 
-@interface iCarouselExampleViewController : UIViewController <iCarouselDataSource, iCarouselDelegate>
-
-@property (nonatomic, strong) IBOutlet iCarousel *carousel;
+@interface iCarouselExampleViewController : UIViewController
 
 @end

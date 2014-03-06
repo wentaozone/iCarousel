@@ -203,6 +203,10 @@ If YES, the carousel will ignore swipe gestures that are perpendicular to the or
 	
 This is actually not a property of iCarousel but is inherited from UIView. It's included here because it's a frequently missed feature. Set this to YES to prevent the carousel item views overflowing their bounds. You can set this property in Interface Builder by ticking the 'Clip Subviews' option. Defaults to NO.
 
+    @property (nonatomic, assign) CGFloat autoscroll;
+
+This property can be used to set the carousel scrolling at a constant speed. A value of 1.0 would scroll the carousel forwards at a rate of one item per second. The autoscroll value can be positive or negative and defaults to 0.0 (stationary). Autoscrolling will stop if the user interacts with the carousel, and will resume when they stop.
+
 
 Methods
 --------------
@@ -248,6 +252,10 @@ This method gives you the item index of either the view passed or the view conta
     - (CGFloat)offsetForItemAtIndex:(NSInteger)index;
 
 Returns the offset for the specified item index in multiples of `itemWidth` from the center position. This is the same value used for calculating the view transform and alpha, and can be used to customise item views based on their position in the carousel. This value can be expected to change for each view whenever the `carouselDidScroll:` delegate method is called.
+
+    - (UIView *)itemViewAtPoint:(CGPoint)point;
+
+Returns the frontmost item view at the specified point within the bounds of the carousel. Useful for implementing your own tap detection.
 
 	- (void)removeItemAtIndex:(NSInteger)index animated:(BOOL)animated;
 
@@ -473,10 +481,6 @@ This example demonstrates how to use the AsyncImageView class (https://github.co
     Downloads & Effects
 
 This example demonstrates how to use the FXImageView class (https://github.com/nicklockwood/FXImageView) to download images on the fly and apply reflections and drop shadows to them in real time.
-
-    Autoscrolling Example
-    
-This example demonstrates how to implement auto-scrolling of the carousel using a timer.
 
 
 FAQ
